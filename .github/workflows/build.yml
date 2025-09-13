@@ -35,7 +35,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo \
-            xorriso grub-pc-bin grub-common
+            m4 xorriso grub-pc-bin grub-common
 
       - name: Cache compiled toolchain
         id: cache-toolchain
@@ -51,6 +51,7 @@ jobs:
         run: |
           mkdir -p toolchains/build-binutils
           cd toolchains/build-binutils
+          mkdir -p gas/doc
           ../binutils-gdb/configure \
             --target=$TARGET \
             --prefix=$PREFIX \
