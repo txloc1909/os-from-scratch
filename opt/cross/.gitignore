@@ -1,0 +1,6 @@
+bin/
+include/
+lib/ 
+libexec/
+share/
+i686-elf/
