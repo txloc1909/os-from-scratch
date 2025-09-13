@@ -20,6 +20,11 @@ jobs:
       PREFIX: ${{ github.workspace }}/opt/cross
 
     steps:
+      - name: Install git (for submodules support)
+        run: | 
+          apt-get update 
+          apt-get install -y git
+
       - name: Checkout repo with submodules
         uses: actions/checkout@v3
         with:
