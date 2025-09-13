@@ -56,7 +56,10 @@ jobs:
             --prefix=$PREFIX \
             --with-sysroot \
             --disable-nls \
-            --disable-werror
+            --disable-werror \
+            --disable-gdb \
+            --disable-sim \
+            --disable-gdbserver 
           make -j$(nproc)
           make install
           cd ../..
