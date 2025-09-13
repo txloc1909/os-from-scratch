@@ -1,0 +1,114 @@
+name: Build OS and Toolchain
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: debian:bookworm-slim
+      options: --user root
+
+    env:
+      TARGET: i686-elf
+      PREFIX: ${{ github.workspace }}/opt/cross
+      PATH: ${{ github.workspace }}/opt/cross/bin:${{ env.PATH }}
+
+    steps:
+      - name: Checkout repo with submodules
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo \
+            xorriso grub-pc-bin grub-common
+
+      - name: Cache compiled toolchain
+        id: cache-toolchain
+        uses: actions/cache@v3
+        with:
+          path: opt/cross
+          key: ${{ runner.os }}-opt-cross-${{ hashFiles('toolchains/binutils-gdb/**', 'toolchains/gcc/**') }}
+          restore-keys: |
+            ${{ runner.os }}-opt-cross-
+
+      - name: Build binutils
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p toolchains/build-binutils
+          cd toolchains/build-binutils
+          ../binutils-gdb/configure \
+            --target=$TARGET \
+            --prefix=$PREFIX \
+            --with-sysroot \
+            --disable-nls \
+            --disable-werror
+          make -j$(nproc)
+          make install
+          cd ../..
+
+      - name: Build gdb
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p toolchains/build-gdb
+          cd toolchains/build-gdb
+          ../binutils-gdb/configure \
+            --target=$TARGET \
+            --prefix=$PREFIX \
+            --disable-werror
+          make -j$(nproc) all-gdb
+          make install-gdb
+          cd ../..
+
+      - name: Build gcc
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p toolchains/build-gcc
+          cd toolchains/build-gcc
+          ../gcc/configure \
+            --target=$TARGET \
+            --prefix=$PREFIX \
+            --disable-nls \
+            --enable-languages=c,c++ \
+            --without-headers \
+            --disable-hosted-libstdcxx
+          make -j$(nproc) all-gcc
+          make all-target-libgcc
+          make all-target-libstdc++-v3
+          make install-gcc
+          make install-target-libgcc
+          make install-target-libstdc++-v3
+          cd ../..
+
+      - name: Build bootstrap assembly
+        run: |
+          mkdir -p build
+          $PREFIX/bin/$TARGET-as src/boot.s -o build/boot.o
+
+      - name: Build and link kernel
+        run: |
+          $PREFIX/bin/$TARGET-gcc -c src/kernel.c -o build/kernel.o -std=gnu99 -ffreestanding -O2 -Wall -Wextra
+          $PREFIX/bin/$TARGET-gcc -T src/linker.ld -o build/myos.bin -ffreestanding -O2 -nostdlib build/boot.o build/kernel.o
+          grub-file --is-x86-multiboot build/myos.bin
+
+      - name: Build ISO image
+        run: |
+          mkdir -p isodir/boot/grub
+          cp build/myos.bin isodir/boot/myos.bin
+          cp src/grub.cfg isodir/boot/grub/grub.cfg
+          grub-mkrescue -o build/myos.iso isodir
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: myos-iso
+          path: build/myos.iso
