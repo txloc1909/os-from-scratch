@@ -17,7 +17,7 @@ jobs:
 
     env:
       TARGET: i686-elf
-      PREFIX: ${{ github.workspace }}/opt/cross
+      PREFIX: /opt/cross
 
     steps:
       - name: Install git (for submodules support)
@@ -37,12 +37,15 @@ jobs:
             build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo \
             m4 xorriso grub-pc-bin grub-common
 
+      - name: Ensure prefix is writable
+        run: mkdir -p $PREFIX && chown -R $USER:$USER $PREFIX
+
       - name: Cache compiled toolchain
         id: cache-toolchain
         uses: actions/cache@v3
         with:
-          path: opt/cross
-          key: ${{ runner.os }}-opt-cross-${{ hashFiles('toolchains/binutils-gdb/**', 'toolchains/gcc/**') }}
+          path: /opt/cross
+          key: ${{ runner.os }}-opt-cross-${{ hashFiles('toolchain/**', '.gitmodules') }}
           restore-keys: |
             ${{ runner.os }}-opt-cross-
 
