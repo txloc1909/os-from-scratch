@@ -38,7 +38,7 @@ jobs:
             m4 xorriso grub-pc-bin grub-common
 
       - name: Ensure prefix is writable
-        run: sudo mkdir -p $PREFIX && sudo chown -R $USER:$USER $PREFIX
+        run: mkdir -p $PREFIX && chown -R $USER:$USER $PREFIX
 
       - name: Cache compiled toolchain
         id: cache-toolchain
